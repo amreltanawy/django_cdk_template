@@ -2,6 +2,7 @@ from aws_cdk import (
     Stack,
     aws_ec2 as ec2,
     aws_rds as rds,
+    aws_secretsmanager as secretsmanager,
     RemovalPolicy,
 )
 from constructs import Construct
@@ -22,5 +23,5 @@ class RDSStack(Stack):
             allocated_storage=20,
             max_allocated_storage=100,
             removal_policy=RemovalPolicy.DESTROY,
-            deletion_protection=False
+            deletion_protection=False,
         )

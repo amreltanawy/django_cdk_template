@@ -5,14 +5,21 @@ from aws_cdk import (
     aws_ec2 as ec2,
 )
 from constructs import Construct
+import os
+
+DB_PASSWORD = os.getenv('DB_PASSWORD')
+DB_HOST = os.getenv('DB_HOST')
+DB_PORT = os.getenv('DB_PORT')
+DB_NAME = os.getenv('DB_NAME')
+DB_USER = os.getenv('DB_USER')
 
 class MyDjangoCdkProjectStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, ecr_repositories, rds_instance, monitoring_resources, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, ecr_repository, monitoring_resources, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        vpc = ec2.Vpc(self, "MyVPC", max_azs=2)
-        cluster = ecs.Cluster(self, "MyCluster", vpc=vpc)
+        vpc = ec2.Vpc(self, "MyDjangoVPC", max_azs=2)
+        cluster = ecs.Cluster(self, "MyDjangoCluster", vpc=vpc)
 
         # Django application
         django_service = ecs_patterns.ApplicationLoadBalancedFargateService(
@@ -21,14 +28,10 @@ class MyDjangoCdkProjectStack(Stack):
             cpu=256,
             memory_limit_mib=512,
             task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-                image=ecs.ContainerImage.from_ecr_repository(ecr_repositories['django']),
+                image=ecs.ContainerImage.from_ecr_repository(ecr_repository),
                 container_port=8000,
-                environment={
-                    'DATABASE_URL': f"postgresql://{rds_instance.instance_endpoint.hostname}:{rds_instance.instance_endpoint.port}/mydb",
-                    'MONITORING_URL': monitoring_resources['monitoring_url']
-                }
-            ),
-        )
+                )
+            )
 
         # Celery worker
         celery_task = ecs.FargateTaskDefinition(
@@ -38,11 +41,7 @@ class MyDjangoCdkProjectStack(Stack):
         )
         celery_task.add_container(
             "CeleryWorkerContainer",
-            image=ecs.ContainerImage.from_ecr_repository(ecr_repositories['celery']),
-            environment={
-                'DATABASE_URL': f"postgresql://{rds_instance.instance_endpoint.hostname}:{rds_instance.instance_endpoint.port}/mydb",
-                'MONITORING_URL': monitoring_resources['monitoring_url']
-            }
+            image=ecs.ContainerImage.from_ecr_repository(ecr_repository),
         )
 
         ecs.FargateService(
